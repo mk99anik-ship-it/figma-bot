@@ -39,8 +39,15 @@
         }
       };
       button.onclick = async () => {
-        if (!deviceToken && code.value.trim().length !== 6) { show("Введите код для первого подключения", "error"); return; }
-        claim(deviceToken ? { deviceToken } : { pairingCode: code.value.trim() });
+        const enteredCode = code.value.trim().toUpperCase();
+        if (!deviceToken && enteredCode.length !== 6) { show("Введите код для первого подключения", "error"); return; }
+        if (enteredCode.length === 6) {
+          deviceToken = "";
+          localStorage.removeItem("canvas-device-token");
+          claim({ pairingCode: enteredCode });
+        } else {
+          claim({ deviceToken });
+        }
       };
       const poll = async () => {
         if (deviceToken && !jobId) {
