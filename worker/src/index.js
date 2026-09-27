@@ -102,7 +102,7 @@ const memory = new Map();
 const saveJob = async (env, job) => {
   if (env.DB) {
     await env.DB.prepare("INSERT INTO jobs (id, pairing_code, device_token, prompt, status, design_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-      .bind(job.id, job.pairingCode, job.deviceToken || null, job.prompt, job.status, JSON.stringify(job.design), job.createdAt, job.createdAt).run();
+      .bind(job.id, job.pairingCode, job.deviceToken || null, job.prompt, job.status, JSON.stringify(job.design || null), job.createdAt, job.createdAt).run();
   } else {
     memory.set(job.id, job);
   }
@@ -121,7 +121,7 @@ const updateJob = async (env, job) => {
   job.updatedAt = now();
   if (env.DB) {
     await env.DB.prepare("UPDATE jobs SET status = ?, design_json = ?, figma_url = ?, error = ?, device_token = ?, updated_at = ? WHERE id = ?")
-      .bind(job.status, JSON.stringify(job.design), job.figmaUrl || null, job.error || null, job.deviceToken || null, job.updatedAt, job.id).run();
+      .bind(job.status, JSON.stringify(job.design || null), job.figmaUrl || null, job.error || null, job.deviceToken || null, job.updatedAt, job.id).run();
   } else {
     memory.set(job.id, job);
   }
@@ -151,6 +151,7 @@ const route = async (request, env) => {
       await saveJob(env, job);
       return json({ id: job.id, pairingCode: body.deviceToken ? null : job.pairingCode, status: job.status });
     } catch (error) {
+      console.error("AI generation failed", error);
       job.status = "error";
       job.error = "AI generation failed";
       await saveJob(env, job);
@@ -200,7 +201,8 @@ export default {
   async fetch(request, env) {
     try {
       return await route(request, env);
-    } catch {
+    } catch (error) {
+      console.error("Worker request failed", error);
       return json({ error: "Unexpected server error" }, 500);
     }
   }
