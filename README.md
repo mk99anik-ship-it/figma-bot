@@ -34,7 +34,7 @@ wrangler deploy --config worker/wrangler.toml
 wrangler secret put AI_ROUTER_API_KEY --config worker/wrangler.toml
 ```
 
-Опционально задайте модель и URL через Worker secrets `AI_ROUTER_MODEL` и `AI_ROUTER_URL`. По умолчанию используется `gpt-6-luna-pro` и `https://routerai.ru/api/v1`. Ключи из переписки не используйте: их нужно отозвать и выпустить заново.
+Опционально задайте модель и URL через Worker secrets `AI_ROUTER_MODEL` и `AI_ROUTER_URL`. По умолчанию используется `openai/gpt-5.6-luna-pro` и `https://routerai.ru/api/v1`. Ключи из переписки не используйте: их нужно отозвать и выпустить заново.
 
 6. Замените `https://canvas-ai-worker.example.workers.dev` в `figma-plugin/ui.html` и `figma-plugin/manifest.json` на URL Worker.
 7. Перед подключением API добавьте на страницу `window.CANVAS_API_BASE = "https://your-worker.workers.dev"` и загрузите `app.js`.
