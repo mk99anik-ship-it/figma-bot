@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+  <head>
+    <style>
+      :root{font-family:Inter,Arial,sans-serif;color:#20202b;background:#fff}*{box-sizing:border-box}body{margin:0;padding:25px 22px}.brand{display:flex;align-items:center;gap:9px;font-size:18px;font-weight:700}.mark{width:19px;height:19px;background:linear-gradient(135deg,#6959e7 50%,#ea7daa 50%);border-radius:5px;transform:rotate(45deg)}p{color:#83838e;font-size:12px;line-height:1.55;margin:15px 0 23px}.label{font-size:9px;letter-spacing:1px;color:#9695a0;font-weight:700}input{display:block;width:100%;margin-top:9px;padding:13px;border:1px solid #dedde8;border-radius:8px;outline:none;font-size:16px;letter-spacing:2px;text-transform:uppercase}input:focus{border-color:#6c5ce8}.button{width:100%;border:0;border-radius:8px;background:#6857e7;color:#fff;padding:12px;margin-top:13px;font-weight:700;cursor:pointer}.button:disabled{opacity:.6}.hint{font-size:10px;text-align:center;margin-top:19px;color:#a0a0aa}.status{display:none;border-radius:8px;background:#f2f1ff;color:#6556dc;padding:12px;font-size:11px;line-height:1.5;margin-top:17px}.status.show{display:block}.success{background:#edfaf4;color:#279369}.error{background:#fff0f2;color:#c75b72}
+    </style>
+  </head>
+  <body>
+    <div class="brand"><span class="mark"></span><span>canvas.ai</span></div>
+    <p>Откройте Canvas AI в браузере, создайте дизайн и вставьте код сопряжения сюда.</p>
+    <label class="label" for="code">КОД СОПРЯЖЕНИЯ</label>
+    <input id="code" maxlength="6" placeholder="ABC123" autocomplete="off" />
+    <button class="button" id="button">Получить дизайн</button>
+    <div class="status" id="status"></div>
+    <div class="hint">Код действует для одной генерации</div>
+    <script>
+      const endpoint = "https://canvas-ai-worker.example.workers.dev";
+      const code = document.getElementById("code");
+      const button = document.getElementById("button");
+      const status = document.getElementById("status");
+      let jobId = "";
+      const show = (message, kind = "") => { status.textContent = message; status.className = `status show ${kind}`; };
+      button.onclick = async () => {
+        if (code.value.trim().length !== 6) { show("Введите 6-значный код сопряжения", "error"); return; }
+        button.disabled = true;
+        show("Получаем структуру дизайна…");
+        try {
+          const response = await fetch(`${endpoint}/api/plugin/claim`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pairingCode: code.value.trim() }) });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Код не найден");
+          jobId = data.id;
+          parent.postMessage({ pluginMessage: { type: "create-design", design: data.design } }, "*");
+          show("Создаём редактируемые слои в Figma…");
+        } catch (error) {
+          button.disabled = false;
+          show(error.message, "error");
+        }
+      };
+      onmessage = (event) => {
+        const message = event.data.pluginMessage;
+        if (!message) return;
+        if (message.type === "created") {
+          show("Готово. Макет добавлен на текущую страницу.", "success");
+          await fetch(`${endpoint}/api/jobs/${jobId}/complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ figmaUrl: message.figmaUrl }) });
+        }
+        if (message.type === "failed") {
+          button.disabled = false;
+          show(message.error, "error");
+        }
+      };
+    </script>
+  </body>
+</html>
