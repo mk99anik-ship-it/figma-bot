@@ -9,7 +9,11 @@ const pairingRow = document.getElementById("pairingRow");
 const pairingCode = document.getElementById("pairingCode");
 const resultHeading = document.getElementById("resultHeading");
 const resultDescription = document.getElementById("resultDescription");
+const attachButton = document.getElementById("attachButton");
+const imageInput = document.getElementById("imageInput");
+const attachments = document.getElementById("attachments");
 const apiBase = window.CANVAS_API_BASE || "https://canvas-ai-worker.mk99anik.workers.dev";
+let selectedImages = [];
 
 const showToast = (message) => {
   toast.textContent = message;
@@ -32,15 +36,40 @@ const finishGeneration = (prompt, job = null) => {
   resultPanel.scrollIntoView({ behavior: "smooth", block: "center" });
 };
 
+const readImage = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve({ name: file.name, type: file.type, data: reader.result });
+  reader.onerror = reject;
+  reader.readAsDataURL(file);
+});
+
+const renderAttachments = () => {
+  attachments.innerHTML = selectedImages.map((image, index) => `<span class="attachment"><span>▧</span>${image.name}<button type="button" data-index="${index}" aria-label="Удалить ${image.name}">×</button></span>`).join("");
+  attachments.querySelectorAll("button").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedImages.splice(Number(button.dataset.index), 1);
+      renderAttachments();
+    });
+  });
+};
+
 const createJob = async (prompt) => {
   const response = await fetch(`${apiBase}/api/jobs`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, deviceToken: window.localStorage.getItem("canvas-device-token") || "" })
+    body: JSON.stringify({ prompt, images: selectedImages, deviceToken: window.localStorage.getItem("canvas-device-token") || "" })
   });
   if (!response.ok) throw new Error("Worker request failed");
   return response.json();
 };
+
+attachButton.addEventListener("click", () => imageInput.click());
+imageInput.addEventListener("change", async () => {
+  const files = Array.from(imageInput.files || []).filter((file) => file.size <= 5 * 1024 * 1024).slice(0, 3 - selectedImages.length);
+  selectedImages = selectedImages.concat(await Promise.all(files.map(readImage)));
+  renderAttachments();
+  imageInput.value = "";
+});
 
 const watchJob = async (jobId) => {
   for (let attempt = 0; attempt < 60; attempt += 1) {

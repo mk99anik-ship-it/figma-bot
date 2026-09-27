@@ -54,9 +54,15 @@ const normalizeDesign = (value, prompt) => {
 
 const designInstructions = "Return only valid JSON. Create a Figma design spec with name, width, height, background, and nodes. Each node must use type frame, rectangle, or text and include x,y,width,height. Text nodes include text,fontSize,fontWeight,color. Rectangle and frame nodes include fill,radius. Keep it to 20 nodes.";
 
-const generateDesign = async (prompt, env) => {
+const generateDesign = async (prompt, images, env) => {
   if (env.AI_ROUTER_API_KEY) {
     const endpoint = `${env.AI_ROUTER_URL || "https://routerai.ru/api/v1"}/chat/completions`;
+    const userContent = [{ type: "text", text: prompt }];
+    for (const image of images.slice(0, 3)) {
+      if (image.type?.startsWith("image/") && image.data?.startsWith("data:image/")) {
+        userContent.push({ type: "image_url", image_url: { url: image.data } });
+      }
+    }
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
@@ -67,7 +73,7 @@ const generateDesign = async (prompt, env) => {
         model: env.AI_ROUTER_MODEL || "gpt-6-luna-pro",
         messages: [
           { role: "system", content: designInstructions },
-          { role: "user", content: prompt }
+          { role: "user", content: userContent }
         ],
         temperature: 0.2,
         response_format: { type: "json_object" }
@@ -129,6 +135,7 @@ const route = async (request, env) => {
   if (request.method === "POST" && url.pathname === "/api/jobs") {
     const body = await request.json().catch(() => ({}));
     const prompt = String(body.prompt || "").trim();
+    const images = Array.isArray(body.images) ? body.images.filter((image) => image && typeof image.data === "string" && image.data.length <= 7_000_000) : [];
     if (!prompt || prompt.length > 4000) return json({ error: "Prompt must contain between 1 and 4000 characters" }, 400);
     const job = {
       id: crypto.randomUUID(),
@@ -139,7 +146,7 @@ const route = async (request, env) => {
       createdAt: now()
     };
     try {
-      job.design = await generateDesign(prompt, env);
+      job.design = await generateDesign(prompt, images, env);
       job.status = "waiting_for_plugin";
       await saveJob(env, job);
       return json({ id: job.id, pairingCode: job.pairingCode, status: job.status });

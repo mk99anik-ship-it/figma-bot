@@ -9,6 +9,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
+    <style>
+      .attachments{display:flex;gap:7px;flex-wrap:wrap;padding:0 21px 10px}.attachment{display:inline-flex;align-items:center;gap:6px;background:#f2f0ff;color:#6657dc;border-radius:6px;padding:5px 8px;font:500 10px Manrope}.attachment button{border:0;background:none;color:#8f86dd;cursor:pointer;font-size:14px;padding:0 0 0 2px}
+    </style>
   </head>
   <body>
     <div class="app-shell">
@@ -53,8 +56,9 @@
           <div class="generator-card" id="generatorCard">
             <div class="prompt-header"><span class="prompt-label">ВАШ ПРОМТ</span><span class="prompt-shortcut">⌘ ↵</span></div>
             <textarea id="promptInput" placeholder="Например: «Создай минималистичный лендинг для бренда кофе...»"></textarea>
+            <div class="attachments" id="attachments"></div>
             <div class="prompt-footer">
-              <div class="prompt-tools"><button class="tool-button" title="Добавить файл">＋</button><span>Добавьте контекст или опишите задачу подробнее</span></div>
+              <div class="prompt-tools"><button class="tool-button" id="attachButton" title="Прикрепить скриншот">＋</button><input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden /><span>Прикрепите скриншот, чтобы показать, что изменить</span></div>
               <button class="generate-button" id="generateButton"><span>Создать в Figma</span><span class="button-arrow">↗</span></button>
             </div>
           </div>
