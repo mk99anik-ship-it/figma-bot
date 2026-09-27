@@ -19,16 +19,18 @@
       const button = document.getElementById("button");
       const status = document.getElementById("status");
       let jobId = "";
+      let deviceToken = localStorage.getItem("canvas-device-token") || "";
       const show = (message, kind = "") => { status.textContent = message; status.className = `status show ${kind}`; };
-      button.onclick = async () => {
-        if (code.value.trim().length !== 6) { show("Введите 6-значный код сопряжения", "error"); return; }
+      const claim = async (payload) => {
         button.disabled = true;
         show("Получаем структуру дизайна…");
         try {
-          const response = await fetch(`${endpoint}/api/plugin/claim`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pairingCode: code.value.trim() }) });
+          const response = await fetch(`${endpoint}/api/plugin/claim`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
           const data = await response.json();
           if (!response.ok) throw new Error(data.error || "Код не найден");
           jobId = data.id;
+          deviceToken = data.deviceToken;
+          localStorage.setItem("canvas-device-token", deviceToken);
           parent.postMessage({ pluginMessage: { type: "create-design", design: data.design } }, "*");
           show("Создаём редактируемые слои в Figma…");
         } catch (error) {
@@ -36,12 +38,33 @@
           show(error.message, "error");
         }
       };
+      button.onclick = async () => {
+        if (!deviceToken && code.value.trim().length !== 6) { show("Введите код для первого подключения", "error"); return; }
+        claim(deviceToken ? { deviceToken } : { pairingCode: code.value.trim() });
+      };
+      const poll = async () => {
+        if (deviceToken && !jobId) {
+          try {
+            const response = await fetch(`${endpoint}/api/plugin/claim`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceToken }) });
+            if (response.ok) {
+              const data = await response.json();
+              jobId = data.id;
+              parent.postMessage({ pluginMessage: { type: "create-design", design: data.design } }, "*");
+              show("Новый макет получен. Создаём слои…");
+            }
+          } catch {}
+        }
+        window.setTimeout(poll, 3000);
+      };
+      poll();
       onmessage = (event) => {
         const message = event.data.pluginMessage;
         if (!message) return;
         if (message.type === "created") {
           show("Готово. Макет добавлен на текущую страницу.", "success");
-          await fetch(`${endpoint}/api/jobs/${jobId}/complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ figmaUrl: message.figmaUrl }) });
+          await fetch(`${endpoint}/api/jobs/${jobId}/complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ figmaUrl: message.figmaUrl, deviceToken }) });
+          jobId = "";
+          button.disabled = false;
         }
         if (message.type === "failed") {
           button.disabled = false;

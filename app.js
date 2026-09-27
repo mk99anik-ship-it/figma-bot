@@ -26,8 +26,8 @@ const finishGeneration = (prompt, job = null) => {
   generateButton.disabled = false;
   generateButton.innerHTML = "<span>Создать в Figma</span><span class=\"button-arrow\">↗</span>";
   resultTitle.textContent = titleFromPrompt(prompt);
-  pairingRow.style.display = job ? "flex" : "none";
-  if (job) pairingCode.textContent = job.pairingCode;
+  pairingRow.style.display = job?.pairingCode ? "flex" : "none";
+  if (job?.pairingCode) pairingCode.textContent = job.pairingCode;
   resultPanel.classList.remove("hidden");
   resultPanel.scrollIntoView({ behavior: "smooth", block: "center" });
 };
@@ -36,7 +36,7 @@ const createJob = async (prompt) => {
   const response = await fetch(`${apiBase}/api/jobs`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt })
+    body: JSON.stringify({ prompt, deviceToken: window.localStorage.getItem("canvas-device-token") || "" })
   });
   if (!response.ok) throw new Error("Worker request failed");
   return response.json();
@@ -48,6 +48,7 @@ const watchJob = async (jobId) => {
     const response = await fetch(`${apiBase}/api/jobs/${jobId}`);
     if (!response.ok) return;
     const job = await response.json();
+    if (job.deviceToken) window.localStorage.setItem("canvas-device-token", job.deviceToken);
     if (job.status === "complete") {
       openButton.href = job.figmaUrl || "https://www.figma.com/";
       pairingRow.style.display = "none";

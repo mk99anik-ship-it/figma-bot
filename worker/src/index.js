@@ -95,8 +95,8 @@ const memory = new Map();
 
 const saveJob = async (env, job) => {
   if (env.DB) {
-    await env.DB.prepare("INSERT INTO jobs (id, pairing_code, prompt, status, design_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-      .bind(job.id, job.pairingCode, job.prompt, job.status, JSON.stringify(job.design), job.createdAt, job.createdAt).run();
+    await env.DB.prepare("INSERT INTO jobs (id, pairing_code, device_token, prompt, status, design_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+      .bind(job.id, job.pairingCode, job.deviceToken || null, job.prompt, job.status, JSON.stringify(job.design), job.createdAt, job.createdAt).run();
   } else {
     memory.set(job.id, job);
   }
@@ -106,7 +106,7 @@ const getJob = async (env, id) => {
   if (env.DB) {
     const row = await env.DB.prepare("SELECT * FROM jobs WHERE id = ?").bind(id).first();
     if (!row) return null;
-    return { ...row, pairingCode: row.pairing_code, design: row.design_json ? JSON.parse(row.design_json) : null };
+    return { ...row, pairingCode: row.pairing_code, deviceToken: row.device_token, design: row.design_json ? JSON.parse(row.design_json) : null };
   }
   return memory.get(id) || null;
 };
@@ -114,8 +114,8 @@ const getJob = async (env, id) => {
 const updateJob = async (env, job) => {
   job.updatedAt = now();
   if (env.DB) {
-    await env.DB.prepare("UPDATE jobs SET status = ?, design_json = ?, figma_url = ?, error = ?, updated_at = ? WHERE id = ?")
-      .bind(job.status, JSON.stringify(job.design), job.figmaUrl || null, job.error || null, job.updatedAt, job.id).run();
+    await env.DB.prepare("UPDATE jobs SET status = ?, design_json = ?, figma_url = ?, error = ?, device_token = ?, updated_at = ? WHERE id = ?")
+      .bind(job.status, JSON.stringify(job.design), job.figmaUrl || null, job.error || null, job.deviceToken || null, job.updatedAt, job.id).run();
   } else {
     memory.set(job.id, job);
   }
@@ -132,7 +132,8 @@ const route = async (request, env) => {
     if (!prompt || prompt.length > 4000) return json({ error: "Prompt must contain between 1 and 4000 characters" }, 400);
     const job = {
       id: crypto.randomUUID(),
-      pairingCode: randomValue(6),
+      pairingCode: body.deviceToken ? null : randomValue(6),
+      deviceToken: String(body.deviceToken || ""),
       prompt,
       status: "generating",
       createdAt: now()
@@ -154,17 +155,22 @@ const route = async (request, env) => {
   if (request.method === "GET" && jobMatch) {
     const job = await getJob(env, jobMatch[1]);
     if (!job) return json({ error: "Job not found" }, 404);
-    return json({ id: job.id, status: job.status, pairingCode: job.pairingCode, figmaUrl: job.figmaUrl || null, error: job.error || null });
+    return json({ id: job.id, status: job.status, pairingCode: job.pairingCode, deviceToken: job.deviceToken || null, figmaUrl: job.figmaUrl || null, error: job.error || null });
   }
 
   if (request.method === "POST" && url.pathname === "/api/plugin/claim") {
     const body = await request.json().catch(() => ({}));
-    const job = [...(env.DB ? await env.DB.prepare("SELECT * FROM jobs WHERE pairing_code = ? AND status = 'waiting_for_plugin'").bind(String(body.pairingCode || "").toUpperCase()).all().then((result) => result.results) : memory.values())][0];
+    const pairingCode = String(body.pairingCode || "").toUpperCase();
+    const deviceToken = String(body.deviceToken || "");
+    const job = [...(env.DB
+      ? await env.DB.prepare("SELECT * FROM jobs WHERE status = 'waiting_for_plugin' AND ((pairing_code = ? AND ? != '') OR (device_token = ? AND ? != ''))").bind(pairingCode, pairingCode, deviceToken, deviceToken).all().then((result) => result.results)
+      : memory.values())].find((item) => item.status === "waiting_for_plugin" && ((pairingCode && item.pairingCode === pairingCode) || (deviceToken && item.deviceToken === deviceToken)));
     if (!job) return json({ error: "Pairing code not found or already used" }, 404);
-    const normalized = env.DB ? { ...job, design: JSON.parse(job.design_json) } : job;
+    const normalized = env.DB ? { ...job, deviceToken: job.device_token, design: JSON.parse(job.design_json) } : job;
+    normalized.deviceToken = normalized.deviceToken || randomValue(32);
     normalized.status = "processing";
     await updateJob(env, normalized);
-    return json({ id: normalized.id, prompt: normalized.prompt, design: normalized.design });
+    return json({ id: normalized.id, prompt: normalized.prompt, deviceToken: normalized.deviceToken, design: normalized.design });
   }
 
   if (request.method === "POST" && url.pathname.match(/^\/api\/jobs\/[^/]+\/complete$/)) {
@@ -175,6 +181,7 @@ const route = async (request, env) => {
     job.status = body.error ? "error" : "complete";
     job.error = body.error || null;
     job.figmaUrl = body.figmaUrl || null;
+    job.deviceToken = body.deviceToken || job.deviceToken || null;
     await updateJob(env, job);
     return json({ ok: true });
   }
