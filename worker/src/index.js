@@ -64,7 +64,7 @@ const generateDesign = async (prompt, env) => {
         Authorization: `Bearer ${env.AI_ROUTER_API_KEY}`
       },
       body: JSON.stringify({
-        model: env.AI_ROUTER_MODEL || "gpt-4o-mini",
+        model: env.AI_ROUTER_MODEL || "gpt-6-luna-pro",
         messages: [
           { role: "system", content: designInstructions },
           { role: "user", content: prompt }
