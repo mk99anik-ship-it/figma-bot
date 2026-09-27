@@ -139,7 +139,7 @@ const route = async (request, env) => {
     if (!prompt || prompt.length > 4000) return json({ error: "Prompt must contain between 1 and 4000 characters" }, 400);
     const job = {
       id: crypto.randomUUID(),
-      pairingCode: body.deviceToken ? null : randomValue(6),
+      pairingCode: randomValue(6),
       deviceToken: String(body.deviceToken || ""),
       prompt,
       status: "generating",
@@ -149,7 +149,7 @@ const route = async (request, env) => {
       job.design = await generateDesign(prompt, images, env);
       job.status = "waiting_for_plugin";
       await saveJob(env, job);
-      return json({ id: job.id, pairingCode: job.pairingCode, status: job.status });
+      return json({ id: job.id, pairingCode: body.deviceToken ? null : job.pairingCode, status: job.status });
     } catch (error) {
       job.status = "error";
       job.error = "AI generation failed";
