@@ -9,7 +9,7 @@ const pairingRow = document.getElementById("pairingRow");
 const pairingCode = document.getElementById("pairingCode");
 const resultHeading = document.getElementById("resultHeading");
 const resultDescription = document.getElementById("resultDescription");
-const apiBase = window.CANVAS_API_BASE || "";
+const apiBase = window.CANVAS_API_BASE || "https://canvas-ai-worker.mk99anik.workers.dev";
 
 const showToast = (message) => {
   toast.textContent = message;

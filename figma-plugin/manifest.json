@@ -6,6 +6,6 @@
   "ui": "ui.html",
   "editorType": ["figma"],
   "networkAccess": {
-    "allowedDomains": ["https://canvas-ai-worker.example.workers.dev"]
+    "allowedDomains": ["https://canvas-ai-worker.mk99anik.workers.dev"]
   }
 }

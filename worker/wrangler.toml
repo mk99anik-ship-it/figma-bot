@@ -8,5 +8,5 @@ binding = "AI"
 [[d1_databases]]
 binding = "DB"
 database_name = "canvas-ai"
-database_id = "replace-with-d1-database-id"
+database_id = "ef812276-77ce-4abc-a959-785c1b35786b"
 migrations_dir = "migrations"
