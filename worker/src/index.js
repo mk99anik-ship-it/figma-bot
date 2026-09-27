@@ -52,19 +52,43 @@ const normalizeDesign = (value, prompt) => {
   };
 };
 
+const designInstructions = "Return only valid JSON. Create a Figma design spec with name, width, height, background, and nodes. Each node must use type frame, rectangle, or text and include x,y,width,height. Text nodes include text,fontSize,fontWeight,color. Rectangle and frame nodes include fill,radius. Keep it to 20 nodes.";
+
 const generateDesign = async (prompt, env) => {
-  if (!env.AI) return fallbackDesign(prompt);
-  const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
-    messages: [
-      {
-        role: "system",
-        content: "Return only valid JSON. Create a Figma design spec with name, width, height, background, and nodes. Each node must use type frame, rectangle, or text and include x,y,width,height. Text nodes include text,fontSize,fontWeight,color. Rectangle and frame nodes include fill,radius. Keep it to 20 nodes."
+  if (env.AI_ROUTER_API_KEY) {
+    const endpoint = `${env.AI_ROUTER_URL || "https://routerai.ru/api/v1"}/chat/completions`;
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${env.AI_ROUTER_API_KEY}`
       },
-      { role: "user", content: prompt }
-    ],
-    response_format: { type: "json_object" }
-  });
-  return normalizeDesign(JSON.parse(result.response || "{}"), prompt);
+      body: JSON.stringify({
+        model: env.AI_ROUTER_MODEL || "gpt-4o-mini",
+        messages: [
+          { role: "system", content: designInstructions },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.2,
+        response_format: { type: "json_object" }
+      })
+    });
+    if (!response.ok) throw new Error(`AI Router returned ${response.status}`);
+    const result = await response.json();
+    const content = result.choices?.[0]?.message?.content || "{}";
+    return normalizeDesign(JSON.parse(content), prompt);
+  }
+  if (env.AI) {
+    const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+      messages: [
+        { role: "system", content: designInstructions },
+        { role: "user", content: prompt }
+      ],
+      response_format: { type: "json_object" }
+    });
+    return normalizeDesign(JSON.parse(result.response || "{}"), prompt);
+  }
+  return fallbackDesign(prompt);
 };
 
 const memory = new Map();
