@@ -79,7 +79,10 @@ const generateDesign = async (prompt, images, env) => {
         response_format: { type: "json_object" }
       })
     });
-    if (!response.ok) throw new Error(`AI Router returned ${response.status}`);
+    if (!response.ok) {
+      const errorText = (await response.text()).slice(0, 500);
+      throw new Error(`AI Router returned ${response.status}: ${errorText}`);
+    }
     const result = await response.json();
     const content = result.choices?.[0]?.message?.content || "{}";
     return normalizeDesign(JSON.parse(content), prompt);
