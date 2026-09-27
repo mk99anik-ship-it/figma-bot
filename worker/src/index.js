@@ -134,6 +134,16 @@ const route = async (request, env) => {
   const url = new URL(request.url);
   if (request.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (url.pathname === "/api/health") return json({ ok: true, service: "canvas-ai-worker" });
+  if (request.method === "GET" && url.pathname === "/api/models") {
+    if (!env.AI_ROUTER_API_KEY) return json({ error: "AI Router key is not configured" }, 503);
+    const response = await fetch(`${env.AI_ROUTER_URL || "https://routerai.ru/api/v1"}/models`, {
+      headers: { Authorization: `Bearer ${env.AI_ROUTER_API_KEY}` }
+    });
+    return new Response(await response.text(), {
+      status: response.status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+  }
 
   if (request.method === "POST" && url.pathname === "/api/jobs") {
     const body = await request.json().catch(() => ({}));
