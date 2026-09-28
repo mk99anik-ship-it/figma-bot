@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f8fc" />
+    <title>Canvas AI — Figma generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .attachments{display:flex;gap:7px;flex-wrap:wrap;padding:0 21px 10px}.attachment{display:inline-flex;align-items:center;gap:6px;background:#f2f0ff;color:#6657dc;border-radius:6px;padding:5px 8px;font:500 10px Manrope}.attachment button{border:0;background:none;color:#8f86dd;cursor:pointer;font-size:14px;padding:0 0 0 2px}
+      .sidebar,.topbar,.footer{display:none}
+      .connection-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 4px 0;padding:10px 13px;border:1px solid #e5e3f0;border-radius:9px;background:#fff;color:#888793;font:500 10px Manrope}.connection-bar>div{display:flex;align-items:center;gap:7px}.connection-dot{width:7px;height:7px;border-radius:50%;background:#efaa68}.connection-dot.connected{background:#62bf9d}.connect-button{border:1px solid #dcd9f2;border-radius:6px;background:#f7f5ff;color:#6657dc;padding:7px 10px;font:700 10px Manrope;cursor:pointer}.connection-code{color:#6557dc;font:500 14px 'DM Mono';letter-spacing:2px}.connection-code.hidden{display:none}
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark"><span></span><span></span><span></span><span></span></div>
+          <span>canvas<span class="brand-accent">.</span>ai</span>
+        </div>
+        <div class="workspace-switcher">
+          <div class="workspace-avatar">S</div>
+          <div class="workspace-copy"><strong>Studio workspace</strong><span>Личное пространство</span></div>
+          <span class="chevron">⌄</span>
+        </div>
+        <div class="sidebar-label">Рабочее пространство</div>
+        <nav>
+          <button class="nav-item active"><span class="nav-icon">✦</span>Генератор<span class="nav-pill">AI</span></button>
+          <button class="nav-item"><span class="nav-icon">▱</span>Мои файлы<span class="nav-count">12</span></button>
+          <button class="nav-item"><span class="nav-icon">⌁</span>Шаблоны</button>
+        </nav>
+        <div class="sidebar-label history-label">Недавние запросы <span>•••</span></div>
+        <div class="history-list">
+          <button class="history-item"><span class="history-dot purple"></span><span>Лендинг для кофейни</span><time>2 мин</time></button>
+          <button class="history-item"><span class="history-dot orange"></span><span>Онбординг приложения</span><time>вчера</time></button>
+          <button class="history-item"><span class="history-dot blue"></span><span>Карточка продукта</span><time>12 сен</time></button>
+        </div>
+        <div class="sidebar-bottom">
+          <button class="nav-item"><span class="nav-icon">?</span>Помощь</button>
+          <button class="account"><span class="account-avatar">AS</span><span><strong>Alex Smirnov</strong><small>Pro план</small></span><span class="chevron">⌄</span></button>
+        </div>
+      </aside>
+      <main class="main-content">
+        <header class="topbar">
+          <div class="breadcrumbs"><span>Генератор</span><i>/</i><strong>Новый запрос</strong></div>
+          <div class="topbar-actions"><button class="icon-button" aria-label="Уведомления">♢<span class="notification-dot"></span></button><button class="top-avatar">AS</button></div>
+        </header>
+        <section class="content">
+          <div class="hero-copy">
+            <div class="eyebrow"><span class="sparkle">✦</span> AI DESIGN ASSISTANT <span class="beta">BETA</span></div>
+            <h1>Создайте дизайн<br /><em>одним сообщением.</em></h1>
+            <p>Опишите идею — Canvas соберёт редактируемый макет<br class="desktop-break" /> прямо в вашем Figma-файле.</p>
+          </div>
+          <div class="generator-card" id="generatorCard">
+            <div class="prompt-header"><span class="prompt-label">ВАШ ПРОМТ</span><span class="prompt-shortcut">⌘ ↵</span></div>
+            <textarea id="promptInput" placeholder="Например: «Создай минималистичный лендинг для бренда кофе...»"></textarea>
+            <div class="attachments" id="attachments"></div>
+            <div class="prompt-footer">
+              <div class="prompt-tools"><button class="tool-button" id="attachButton" title="Прикрепить скриншот">＋</button><input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden /><span>Прикрепите скриншот, чтобы показать, что изменить</span></div>
+              <button class="generate-button" id="generateButton"><span>Создать в Figma</span><span class="button-arrow">↗</span></button>
+            </div>
+          </div>
+          <div class="connection-bar" id="connectionBar"><div><span class="connection-dot" id="connectionDot"></span><span id="connectionText">Figma не подключена</span></div><button class="connect-button" id="connectButton">Подключить Figma</button><span class="connection-code hidden" id="connectionCode"></span></div>
+          <div class="suggestions">
+            <span class="suggestions-label">Попробуйте:</span>
+            <button class="suggestion" data-prompt="Создай лендинг для современного бренда натуральной косметики">Лендинг для бренда</button>
+            <button class="suggestion" data-prompt="Создай мобильный экран онбординга для приложения о путешествиях">Мобильный онбординг</button>
+            <button class="suggestion" data-prompt="Создай дашборд аналитики продаж для SaaS продукта">Дашборд аналитики</button>
+          </div>
+          <section class="result-panel hidden" id="resultPanel">
+            <div class="result-heading"><div><div class="eyebrow" id="resultEyebrow"><span class="status-check">✓</span> ГОТОВО</div><h2 id="resultHeading">Ваш макет создан</h2></div><span class="result-time">только что</span></div>
+            <div class="result-card">
+              <div class="result-preview"><div class="preview-grid"></div><div class="preview-window"><div class="preview-window-top"><i></i><i></i><i></i></div><div class="preview-line wide"></div><div class="preview-line"></div><div class="preview-blocks"><span></span><span></span><span></span></div></div></div>
+              <div class="result-info"><span class="file-type">FIGMA FILE</span><h3 id="resultTitle">Новый дизайн</h3><p id="resultDescription">Создано на основе вашего промта</p><div class="pairing-row hidden" id="pairingRow" style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding:9px 11px;background:#f5f3ff;border-radius:7px;color:#7c75ae;font:700 8px Manrope;letter-spacing:.6px"><span>КОД ДЛЯ FIGMA PLUGIN</span><strong id="pairingCode" style="color:#6556dc;font:500 14px 'DM Mono';letter-spacing:2px">------</strong></div><div class="result-meta"><span>●</span> 8 фреймов <i>·</i><span>◷</span> 1 минута</div><div class="result-actions"><a class="open-button" id="openButton" href="https://www.figma.com/" target="_blank" rel="noreferrer">Открыть в Figma <span>↗</span></a><button class="copy-button" id="copyButton">Скопировать ссылку</button></div></div>
+            </div>
+          </section>
+          <div class="trust-row"><span class="trust-icon">⌘</span><span>Работает с вашим Figma</span><span class="trust-separator"></span><span class="trust-icon">◈</span><span>Редактируемые слои</span><span class="trust-separator"></span><span class="trust-icon">✧</span><span>Безопасно и приватно</span></div>
+        </section>
+        <footer class="footer"><span>Canvas AI v1.0</span><span>Сделано для дизайнеров <span class="heart">♥</span></span><a href="#">Документация ↗</a></footer>
+      </main>
+    </div>
+    <div class="toast" id="toast"></div>
+    <script src="app.js"></script>
+  </body>
+</html>

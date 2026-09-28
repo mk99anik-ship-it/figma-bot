@@ -1,0 +1,12 @@
+name = "canvas-ai-worker"
+main = "src/index.js"
+compatibility_date = "2026-09-27"
+
+[ai]
+binding = "AI"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "canvas-ai"
+database_id = "ef812276-77ce-4abc-a959-785c1b35786b"
+migrations_dir = "migrations"

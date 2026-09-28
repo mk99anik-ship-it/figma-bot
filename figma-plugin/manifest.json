@@ -1,0 +1,11 @@
+{
+  "name": "Canvas AI",
+  "id": "canvas-ai-plugin",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui-direct.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["https://canvas-ai-worker.mk99anik.workers.dev"]
+  }
+}
