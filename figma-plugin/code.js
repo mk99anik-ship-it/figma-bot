@@ -1,6 +1,7 @@
 figma.showUI(__html__, { width: 360, height: 460 });
 
 const hexToRgb = (hex) => {
+  if (typeof hex === "object" && hex) return hex;
   const value = hex.replace("#", "");
   const full = value.length === 3 ? value.split("").map((char) => char + char).join("") : value;
   return {
