@@ -72,7 +72,7 @@
         window.setTimeout(poll, 3000);
       };
       poll();
-      onmessage = (event) => {
+      onmessage = async (event) => {
         const message = event.data.pluginMessage;
         if (!message) return;
         if (message.type === "created") {
