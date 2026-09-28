@@ -119,7 +119,7 @@ figma.ui.onmessage = async (message) => {
   if (message.type !== "create-design") return;
   try {
     const figmaUrl = await createDesign(message.design, message.prompt || "");
-    figma.ui.postMessage({ type: "created", figmaUrl });
+    if (figmaUrl) figma.ui.postMessage({ type: "created", figmaUrl });
   } catch (error) {
     figma.ui.postMessage({ type: "failed", error: error.message || "Could not create design" });
   }
