@@ -40,7 +40,10 @@ const connectFigma = async () => {
   connectButton.disabled = true;
   connectButton.textContent = "Создаём код…";
   try {
-    const response = await fetch(`${apiBase}/api/pair`, { method: "POST" });
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 10000);
+    const response = await fetch(`${apiBase}/api/pair`, { method: "POST", cache: "no-store", signal: controller.signal });
+    window.clearTimeout(timeout);
     const session = await response.json();
     if (!response.ok) throw new Error(session.error || "Не удалось создать подключение");
     connectionText.textContent = "Введите код в плагине Figma";
