@@ -242,9 +242,16 @@ const route = async (request, env) => {
     const body = await request.json().catch(() => ({}));
     const pairingCode = String(body.pairingCode || "").toUpperCase();
     const deviceToken = String(body.deviceToken || "");
-    const job = [...(env.DB
-      ? await env.DB.prepare("SELECT * FROM jobs WHERE status = 'waiting_for_plugin' AND ((pairing_code = ? AND ? != '') OR (device_token = ? AND ? != ''))").bind(pairingCode, pairingCode, deviceToken, deviceToken).all().then((result) => result.results)
-      : memory.values())].find((item) => item.status === "waiting_for_plugin" && ((pairingCode && item.pairingCode === pairingCode) || (deviceToken && item.deviceToken === deviceToken)));
+    let jobs;
+    if (env.DB) {
+      const result = deviceToken
+        ? await env.DB.prepare("SELECT * FROM jobs WHERE status = 'waiting_for_plugin' AND device_token = ? ORDER BY created_at ASC LIMIT 1").bind(deviceToken).all()
+        : await env.DB.prepare("SELECT * FROM jobs WHERE status = 'waiting_for_plugin' AND pairing_code = ? LIMIT 1").bind(pairingCode).all();
+      jobs = result.results;
+    } else {
+      jobs = [...memory.values()];
+    }
+    const job = jobs.find((item) => item.status === "waiting_for_plugin" && ((pairingCode && (item.pairingCode || item.pairing_code) === pairingCode) || (deviceToken && (item.deviceToken || item.device_token) === deviceToken)));
     if (!job) return json({ error: "Pairing code not found or already used" }, 404);
     const normalized = env.DB ? { ...job, deviceToken: job.device_token, design: JSON.parse(job.design_json) } : job;
     normalized.deviceToken = normalized.deviceToken || randomValue(32);
