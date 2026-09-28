@@ -115,7 +115,80 @@ const createDesign = async (design, prompt) => {
   return `https://www.figma.com/design/${figma.fileKey || ""}?node-id=${root.id.replace(":", "-")}`;
 };
 
+const serializeNode = (node) => ({
+  id: node.id,
+  name: node.name,
+  type: node.type,
+  x: node.x,
+  y: node.y,
+  width: node.width,
+  height: node.height,
+  characters: "characters" in node ? node.characters : undefined,
+  fills: "fills" in node && Array.isArray(node.fills) ? node.fills.slice(0, 1).map((fill) => fill.color) : undefined,
+  children: "children" in node ? node.children.slice(0, 30).map(serializeNode) : undefined
+});
+
+const findNode = (id) => figma.getNodeById(id);
+
+const applyActions = async (actions) => {
+  for (const action of actions) {
+    if (action.type === "create_frame") {
+      const frame = figma.createFrame();
+      frame.name = action.name || "AI frame";
+      frame.resize(action.width || 400, action.height || 300);
+      frame.x = action.x || 0;
+      frame.y = action.y || 0;
+      frame.fills = [paint(action.fill || "#FFFFFF")];
+      frame.cornerRadius = action.radius || 0;
+      figma.currentPage.appendChild(frame);
+    } else if (action.type === "create_text") {
+      await loadFont(action.fontWeight || 400);
+      const text = figma.createText();
+      text.name = action.name || "AI text";
+      text.characters = action.text || "";
+      text.fontSize = action.fontSize || 16;
+      text.fontName = { family: "Inter", style: action.fontWeight >= 600 ? "Bold" : "Regular" };
+      text.fills = [paint(action.color || "#1C1C27")];
+      text.x = action.x || 0;
+      text.y = action.y || 0;
+      text.resizeWithoutConstraints(action.width || 300, 50);
+      figma.currentPage.appendChild(text);
+    } else {
+      const node = findNode(action.nodeId);
+      if (!node) continue;
+      if (action.type === "set_fill" && "fills" in node) node.fills = [paint(action.color || "#FFFFFF")];
+      if (action.type === "set_text" && "characters" in node) {
+        await loadFont(node.fontWeight?.numeric || 400);
+        node.characters = String(action.text || "");
+      }
+      if (action.type === "resize") node.resize(Math.max(1, Number(action.width) || node.width), Math.max(1, Number(action.height) || node.height));
+      if (action.type === "move") { node.x = Number(action.x) || node.x; node.y = Number(action.y) || node.y; }
+      if (action.type === "set_radius" && "cornerRadius" in node) node.cornerRadius = Math.max(0, Number(action.radius) || 0);
+      if (action.type === "delete") node.remove();
+    }
+  }
+  figma.currentPage.selection = [];
+  figma.viewport.scrollAndZoomIntoView(figma.currentPage.children.slice(0, 30));
+};
+
 figma.ui.onmessage = async (message) => {
+  if (message.type === "run-prompt") {
+    try {
+      const nodes = figma.currentPage.children.slice(0, 100).map(serializeNode);
+      const response = await fetch("https://canvas-ai-worker.mk99anik.workers.dev/api/modify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: message.prompt, images: message.images || [], nodes })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Не удалось изменить файл");
+      await applyActions(data.actions || []);
+      figma.ui.postMessage({ type: "modified", count: (data.actions || []).length });
+    } catch (error) {
+      figma.ui.postMessage({ type: "failed", error: error.message || "Не удалось изменить файл" });
+    }
+    return;
+  }
   if (message.type !== "create-design") return;
   try {
     const figmaUrl = await createDesign(message.design, message.prompt || "");

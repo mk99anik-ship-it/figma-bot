@@ -27,23 +27,15 @@
         const text = prompt.value.trim();
         if (!text) { show("Сначала напишите промт", "error"); return; }
         button.disabled = true;
-        show("AI создаёт макет…");
-        try {
-          const response = await fetch(`${endpoint}/api/generate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: text, images }) });
-          const data = await response.json();
-          if (!response.ok) throw new Error(data.error || "Не удалось создать дизайн");
-          parent.postMessage({ pluginMessage: { type: "create-design", design: data.design, prompt: text } }, "*");
-          show("Создаём редактируемые слои в текущем файле…");
-        } catch (error) {
-          button.disabled = false;
-          show(error.message, "error");
-        }
+        show("AI анализирует текущий файл…");
+        parent.postMessage({ pluginMessage: { type: "run-prompt", prompt: text, images } }, "*");
       };
       onmessage = (event) => {
         const message = event.data.pluginMessage;
         if (!message) return;
         if (message.type === "created") { show("Готово — макет добавлен в Figma.", "success"); button.disabled = false; }
         if (message.type === "edited") { show("Готово — выбранный слой изменён.", "success"); button.disabled = false; }
+        if (message.type === "modified") { show(`Готово — изменено операций: ${message.count}`, "success"); button.disabled = false; }
         if (message.type === "failed") { show(message.error, "error"); button.disabled = false; }
       };
     </script>

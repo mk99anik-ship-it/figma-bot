@@ -100,6 +100,41 @@ const generateDesign = async (prompt, images, env) => {
   return fallbackDesign(prompt);
 };
 
+const modifyPage = async (prompt, nodes, images, env) => {
+  if (!env.AI_ROUTER_API_KEY) return { actions: [] };
+  const endpoint = `${env.AI_ROUTER_URL || "https://routerai.ru/api/v1"}/chat/completions`;
+  const content = [{
+    type: "text",
+    text: `User request: ${prompt}\nCurrent Figma page nodes: ${JSON.stringify(nodes).slice(0, 120000)}`
+  }];
+  for (const image of images.slice(0, 3)) {
+    if (image.type?.startsWith("image/") && image.data?.startsWith("data:image/")) content.push({ type: "image_url", image_url: { url: image.data } });
+  }
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.AI_ROUTER_API_KEY}` },
+    body: JSON.stringify({
+      model: env.AI_ROUTER_MODEL || "openai/gpt-6-luna-pro",
+      messages: [
+        {
+          role: "system",
+          content: "You are an AI Figma editor. Return only JSON in the form {\"actions\":[...]}. Use node IDs from the current page. Allowed actions: set_fill {nodeId,color}, set_text {nodeId,text}, resize {nodeId,width,height}, move {nodeId,x,y}, set_radius {nodeId,radius}, delete {nodeId}, create_frame {name,x,y,width,height,fill,radius}, create_text {name,text,x,y,width,fontSize,fontWeight,color}. Fulfill the request by editing existing nodes when possible. If the user asks to create something new, use create actions. Never invent node IDs."
+        },
+        { role: "user", content }
+      ],
+      temperature: 0.1,
+      response_format: { type: "json_object" }
+    })
+  });
+  if (!response.ok) throw new Error("AI modification failed");
+  const result = await response.json();
+  const parsed = JSON.parse(result.choices?.[0]?.message?.content || "{}");
+  const allowed = new Set(["set_fill", "set_text", "resize", "move", "set_radius", "delete", "create_frame", "create_text"]);
+  return {
+    actions: Array.isArray(parsed.actions) ? parsed.actions.filter((action) => allowed.has(action.type)).slice(0, 100) : []
+  };
+};
+
 const memory = new Map();
 const pairMemory = new Map();
 
@@ -187,6 +222,19 @@ const route = async (request, env) => {
       return json({ design });
     } catch {
       return json({ error: "AI generation failed" }, 502);
+    }
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/modify") {
+    const body = await request.json().catch(() => ({}));
+    const prompt = String(body.prompt || "").trim();
+    const nodes = Array.isArray(body.nodes) ? body.nodes : [];
+    const images = Array.isArray(body.images) ? body.images.filter((image) => image && typeof image.data === "string" && image.data.length <= 7_000_000) : [];
+    if (!prompt || prompt.length > 4000) return json({ error: "Prompt must contain between 1 and 4000 characters" }, 400);
+    try {
+      return json(await modifyPage(prompt, nodes, images, env));
+    } catch {
+      return json({ error: "AI modification failed" }, 502);
     }
   }
 
