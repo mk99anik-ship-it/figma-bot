@@ -54,31 +54,6 @@ const normalizeDesign = (value, prompt) => {
 
 const designInstructions = "Return only valid JSON. Create a Figma design spec with name, width, height, background, and nodes. Each node must use type frame, rectangle, or text and include x,y,width,height. Text nodes include text,fontSize,fontWeight,color. Rectangle and frame nodes include fill,radius. Keep it to 20 nodes.";
 
-const promptColor = (prompt) => {
-  const colors = [
-    ["син", "#2563EB"], ["голуб", "#38BDF8"], ["красн", "#EF4444"], ["зелён", "#22C55E"], ["зелен", "#22C55E"],
-    ["жёлт", "#EAB308"], ["желт", "#EAB308"], ["оранж", "#F97316"], ["фиолет", "#8B5CF6"],
-    ["чёрн", "#111827"], ["черн", "#111827"], ["бел", "#FFFFFF"], ["blue", "#2563EB"], ["red", "#EF4444"],
-    ["green", "#22C55E"], ["yellow", "#EAB308"], ["orange", "#F97316"], ["purple", "#8B5CF6"],
-    ["black", "#111827"], ["white", "#FFFFFF"]
-  ];
-  const item = colors.find(([name]) => prompt.toLowerCase().includes(name));
-  return item ? item[1] : null;
-};
-
-const flattenNodes = (nodes) => nodes.flatMap((node) => [node, ...(node.children ? flattenNodes(node.children) : [])]);
-
-const fallbackActions = (prompt, nodes) => {
-  const text = prompt.toLowerCase();
-  const flatNodes = flattenNodes(nodes);
-  const color = promptColor(text);
-  if (color && /(перекрас|цвет|залив|фон|сделай.*цвет|recolor|color|paint)/.test(text)) {
-    const targets = flatNodes.filter((node) => ["RECTANGLE", "FRAME", "ELLIPSE", "COMPONENT", "INSTANCE"].includes(node.type));
-    return targets.map((node) => ({ type: "set_fill", nodeId: node.id, color })).slice(0, 100);
-  }
-  return [];
-};
-
 const generateDesign = async (prompt, images, env) => {
   if (env.AI_ROUTER_API_KEY) {
     const endpoint = `${env.AI_ROUTER_URL || "https://routerai.ru/api/v1"}/chat/completions`;
@@ -143,7 +118,7 @@ const modifyPage = async (prompt, nodes, images, env) => {
       messages: [
         {
           role: "system",
-          content: "You are an AI Figma editor. Return only JSON in the form {\"actions\":[...]}. Use node IDs from the current page. Allowed actions: set_fill {nodeId,color}, set_text {nodeId,text}, resize {nodeId,width,height}, move {nodeId,x,y}, set_radius {nodeId,radius}, delete {nodeId}, create_frame {name,x,y,width,height,fill,radius}, create_text {name,text,x,y,width,fontSize,fontWeight,color}. Fulfill the request by editing existing nodes when possible. If the user asks to create something new, use create actions. Never invent node IDs."
+          content: "You are an autonomous Figma design editor. Understand the user's request semantically, in any language, and apply it to the current page. Return only JSON in the form {\"actions\":[...]}. Use node IDs from the current page. Allowed actions: set_fill {nodeId,color}, set_text {nodeId,text}, resize {nodeId,width,height}, move {nodeId,x,y}, set_radius {nodeId,radius}, delete {nodeId}, create_frame {name,x,y,width,height,fill,radius}, create_text {name,text,x,y,width,fontSize,fontWeight,color}. Choose the correct existing nodes by their names, text, type, hierarchy, and geometry. For any actionable request, always return at least one action. If the user asks to create something new, use create actions. Never invent node IDs and never return an empty actions array for a valid edit request."
         },
         { role: "user", content }
       ],
@@ -155,9 +130,10 @@ const modifyPage = async (prompt, nodes, images, env) => {
   const result = await response.json();
   const parsed = JSON.parse(result.choices?.[0]?.message?.content || "{}");
   const allowed = new Set(["set_fill", "set_text", "resize", "move", "set_radius", "delete", "create_frame", "create_text"]);
-  const actions = Array.isArray(parsed.actions) ? parsed.actions.filter((action) => allowed.has(action.type)).slice(0, 100) : [];
+  const candidateActions = parsed.actions || parsed.commands || parsed.operations || [];
+  const actions = Array.isArray(candidateActions) ? candidateActions.filter((action) => allowed.has(action.type)).slice(0, 100) : [];
   return {
-    actions: actions.length ? actions : fallbackActions(prompt, nodes)
+    actions
   };
 };
 
