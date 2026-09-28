@@ -54,6 +54,31 @@ const normalizeDesign = (value, prompt) => {
 
 const designInstructions = "Return only valid JSON. Create a Figma design spec with name, width, height, background, and nodes. Each node must use type frame, rectangle, or text and include x,y,width,height. Text nodes include text,fontSize,fontWeight,color. Rectangle and frame nodes include fill,radius. Keep it to 20 nodes.";
 
+const promptColor = (prompt) => {
+  const colors = [
+    ["син", "#2563EB"], ["голуб", "#38BDF8"], ["красн", "#EF4444"], ["зелён", "#22C55E"], ["зелен", "#22C55E"],
+    ["жёлт", "#EAB308"], ["желт", "#EAB308"], ["оранж", "#F97316"], ["фиолет", "#8B5CF6"],
+    ["чёрн", "#111827"], ["черн", "#111827"], ["бел", "#FFFFFF"], ["blue", "#2563EB"], ["red", "#EF4444"],
+    ["green", "#22C55E"], ["yellow", "#EAB308"], ["orange", "#F97316"], ["purple", "#8B5CF6"],
+    ["black", "#111827"], ["white", "#FFFFFF"]
+  ];
+  const item = colors.find(([name]) => prompt.toLowerCase().includes(name));
+  return item ? item[1] : null;
+};
+
+const flattenNodes = (nodes) => nodes.flatMap((node) => [node, ...(node.children ? flattenNodes(node.children) : [])]);
+
+const fallbackActions = (prompt, nodes) => {
+  const text = prompt.toLowerCase();
+  const flatNodes = flattenNodes(nodes);
+  const color = promptColor(text);
+  if (color && /(перекрас|цвет|залив|фон|сделай.*цвет|recolor|color|paint)/.test(text)) {
+    const targets = flatNodes.filter((node) => ["RECTANGLE", "FRAME", "ELLIPSE", "COMPONENT", "INSTANCE"].includes(node.type));
+    return targets.map((node) => ({ type: "set_fill", nodeId: node.id, color })).slice(0, 100);
+  }
+  return [];
+};
+
 const generateDesign = async (prompt, images, env) => {
   if (env.AI_ROUTER_API_KEY) {
     const endpoint = `${env.AI_ROUTER_URL || "https://routerai.ru/api/v1"}/chat/completions`;
@@ -130,8 +155,9 @@ const modifyPage = async (prompt, nodes, images, env) => {
   const result = await response.json();
   const parsed = JSON.parse(result.choices?.[0]?.message?.content || "{}");
   const allowed = new Set(["set_fill", "set_text", "resize", "move", "set_radius", "delete", "create_frame", "create_text"]);
+  const actions = Array.isArray(parsed.actions) ? parsed.actions.filter((action) => allowed.has(action.type)).slice(0, 100) : [];
   return {
-    actions: Array.isArray(parsed.actions) ? parsed.actions.filter((action) => allowed.has(action.type)).slice(0, 100) : []
+    actions: actions.length ? actions : fallbackActions(prompt, nodes)
   };
 };
 
