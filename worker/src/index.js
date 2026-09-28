@@ -177,6 +177,19 @@ const route = async (request, env) => {
     return json({ id: session.id, pairingCode: session.pairingCode, status: session.status });
   }
 
+  if (request.method === "POST" && url.pathname === "/api/generate") {
+    const body = await request.json().catch(() => ({}));
+    const prompt = String(body.prompt || "").trim();
+    const images = Array.isArray(body.images) ? body.images.filter((image) => image && typeof image.data === "string" && image.data.length <= 7_000_000) : [];
+    if (!prompt || prompt.length > 4000) return json({ error: "Prompt must contain between 1 and 4000 characters" }, 400);
+    try {
+      const design = await generateDesign(prompt, images, env);
+      return json({ design });
+    } catch {
+      return json({ error: "AI generation failed" }, 502);
+    }
+  }
+
   const pairMatch = url.pathname.match(/^\/api\/pair\/([^/]+)$/);
   if (request.method === "GET" && pairMatch) {
     const session = await getPairSession(env, pairMatch[1]);
