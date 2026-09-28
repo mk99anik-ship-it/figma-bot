@@ -44,6 +44,20 @@
         if (enteredCode.length === 6) {
           deviceToken = "";
           localStorage.removeItem("canvas-device-token");
+          button.disabled = true;
+          show("Подключаем Figma к сайту…");
+          try {
+            const pairResponse = await fetch(`${endpoint}/api/pair/claim`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pairingCode: enteredCode }) });
+            const pairData = await pairResponse.json();
+            if (pairResponse.ok) {
+              deviceToken = pairData.deviceToken;
+              localStorage.setItem("canvas-device-token", deviceToken);
+              code.value = "";
+              show("Figma подключена. Теперь можно писать промты на сайте.", "success");
+              button.textContent = "Подключено";
+              return;
+            }
+          } catch {}
           claim({ pairingCode: enteredCode });
         } else {
           claim({ deviceToken });

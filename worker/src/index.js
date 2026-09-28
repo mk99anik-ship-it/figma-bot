@@ -101,6 +101,7 @@ const generateDesign = async (prompt, images, env) => {
 };
 
 const memory = new Map();
+const pairMemory = new Map();
 
 const saveJob = async (env, job) => {
   if (env.DB) {
@@ -130,6 +131,32 @@ const updateJob = async (env, job) => {
   }
 };
 
+const createPairSession = async (env) => {
+  const session = {
+    id: crypto.randomUUID(),
+    pairingCode: randomValue(6),
+    status: "pending",
+    createdAt: now(),
+    updatedAt: now()
+  };
+  if (env.DB) {
+    await env.DB.prepare("INSERT INTO pair_sessions (id, pairing_code, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
+      .bind(session.id, session.pairingCode, session.status, session.createdAt, session.updatedAt).run();
+  } else {
+    pairMemory.set(session.id, session);
+  }
+  return session;
+};
+
+const getPairSession = async (env, id) => {
+  if (env.DB) {
+    const row = await env.DB.prepare("SELECT * FROM pair_sessions WHERE id = ?").bind(id).first();
+    if (!row) return null;
+    return { ...row, pairingCode: row.pairing_code, deviceToken: row.device_token };
+  }
+  return pairMemory.get(id) || null;
+};
+
 const route = async (request, env) => {
   const url = new URL(request.url);
   if (request.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -143,6 +170,38 @@ const route = async (request, env) => {
       status: response.status,
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/pair") {
+    const session = await createPairSession(env);
+    return json({ id: session.id, pairingCode: session.pairingCode, status: session.status });
+  }
+
+  const pairMatch = url.pathname.match(/^\/api\/pair\/([^/]+)$/);
+  if (request.method === "GET" && pairMatch) {
+    const session = await getPairSession(env, pairMatch[1]);
+    if (!session) return json({ error: "Pair session not found" }, 404);
+    return json({ id: session.id, status: session.status, deviceToken: session.deviceToken || null });
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/pair/claim") {
+    const body = await request.json().catch(() => ({}));
+    const code = String(body.pairingCode || "").toUpperCase();
+    const session = env.DB
+      ? await env.DB.prepare("SELECT * FROM pair_sessions WHERE pairing_code = ? AND status = 'pending'").bind(code).first()
+      : [...pairMemory.values()].find((item) => item.pairingCode === code && item.status === "pending");
+    if (!session) return json({ error: "Pairing code not found" }, 404);
+    const deviceToken = randomValue(32);
+    if (env.DB) {
+      await env.DB.prepare("UPDATE pair_sessions SET device_token = ?, status = 'paired', updated_at = ? WHERE id = ?")
+        .bind(deviceToken, now(), session.id).run();
+    } else {
+      session.deviceToken = deviceToken;
+      session.status = "paired";
+      session.updatedAt = now();
+      pairMemory.set(session.id, session);
+    }
+    return json({ id: session.id, status: "paired", deviceToken });
   }
 
   if (request.method === "POST" && url.pathname === "/api/jobs") {

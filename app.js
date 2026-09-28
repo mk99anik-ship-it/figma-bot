@@ -12,6 +12,10 @@ const resultDescription = document.getElementById("resultDescription");
 const attachButton = document.getElementById("attachButton");
 const imageInput = document.getElementById("imageInput");
 const attachments = document.getElementById("attachments");
+const connectButton = document.getElementById("connectButton");
+const connectionText = document.getElementById("connectionText");
+const connectionDot = document.getElementById("connectionDot");
+const connectionCode = document.getElementById("connectionCode");
 const apiBase = window.CANVAS_API_BASE || "https://canvas-ai-worker.mk99anik.workers.dev";
 let selectedImages = [];
 
@@ -20,6 +24,50 @@ const showToast = (message) => {
   toast.classList.add("show");
   window.setTimeout(() => toast.classList.remove("show"), 2600);
 };
+
+const setConnected = () => {
+  connectionText.textContent = "Figma подключена";
+  connectionDot.classList.add("connected");
+  connectionCode.classList.add("hidden");
+  connectButton.textContent = "Подключено";
+};
+
+const connectFigma = async () => {
+  if (window.localStorage.getItem("canvas-device-token")) {
+    setConnected();
+    return;
+  }
+  connectButton.disabled = true;
+  connectButton.textContent = "Создаём код…";
+  try {
+    const response = await fetch(`${apiBase}/api/pair`, { method: "POST" });
+    const session = await response.json();
+    if (!response.ok) throw new Error(session.error || "Не удалось создать подключение");
+    connectionText.textContent = "Введите код в плагине Figma";
+    connectionCode.textContent = session.pairingCode;
+    connectionCode.classList.remove("hidden");
+    connectButton.textContent = "Ожидаем плагин…";
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      const statusResponse = await fetch(`${apiBase}/api/pair/${session.id}`);
+      const status = await statusResponse.json();
+      if (status.status === "paired" && status.deviceToken) {
+        window.localStorage.setItem("canvas-device-token", status.deviceToken);
+        setConnected();
+        showToast("Figma подключена");
+        return;
+      }
+    }
+    throw new Error("Время ожидания подключения истекло");
+  } catch (error) {
+    connectionText.textContent = error.message;
+    connectButton.disabled = false;
+    connectButton.textContent = "Подключить Figma";
+  }
+};
+
+connectButton.addEventListener("click", connectFigma);
+if (window.localStorage.getItem("canvas-device-token")) setConnected();
 
 const titleFromPrompt = (prompt) => {
   const words = prompt.replace(/[«»"]/g, "").trim().split(/\s+/).slice(0, 5).join(" ");

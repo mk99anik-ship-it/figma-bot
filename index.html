@@ -12,6 +12,7 @@
     <style>
       .attachments{display:flex;gap:7px;flex-wrap:wrap;padding:0 21px 10px}.attachment{display:inline-flex;align-items:center;gap:6px;background:#f2f0ff;color:#6657dc;border-radius:6px;padding:5px 8px;font:500 10px Manrope}.attachment button{border:0;background:none;color:#8f86dd;cursor:pointer;font-size:14px;padding:0 0 0 2px}
       .sidebar,.topbar,.footer{display:none}
+      .connection-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 4px 0;padding:10px 13px;border:1px solid #e5e3f0;border-radius:9px;background:#fff;color:#888793;font:500 10px Manrope}.connection-bar>div{display:flex;align-items:center;gap:7px}.connection-dot{width:7px;height:7px;border-radius:50%;background:#efaa68}.connection-dot.connected{background:#62bf9d}.connect-button{border:1px solid #dcd9f2;border-radius:6px;background:#f7f5ff;color:#6657dc;padding:7px 10px;font:700 10px Manrope;cursor:pointer}.connection-code{color:#6557dc;font:500 14px 'DM Mono';letter-spacing:2px}.connection-code.hidden{display:none}
     </style>
   </head>
   <body>
@@ -63,6 +64,7 @@
               <button class="generate-button" id="generateButton"><span>Создать в Figma</span><span class="button-arrow">↗</span></button>
             </div>
           </div>
+          <div class="connection-bar" id="connectionBar"><div><span class="connection-dot" id="connectionDot"></span><span id="connectionText">Figma не подключена</span></div><button class="connect-button" id="connectButton">Подключить Figma</button><span class="connection-code hidden" id="connectionCode"></span></div>
           <div class="suggestions">
             <span class="suggestions-label">Попробуйте:</span>
             <button class="suggestion" data-prompt="Создай лендинг для современного бренда натуральной косметики">Лендинг для бренда</button>
