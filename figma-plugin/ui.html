@@ -18,8 +18,13 @@
       const code = document.getElementById("code");
       const button = document.getElementById("button");
       const status = document.getElementById("status");
+      const storage = {
+        get: () => { try { return window.localStorage.getItem("canvas-device-token") || ""; } catch { return ""; } },
+        set: (value) => { try { window.localStorage.setItem("canvas-device-token", value); } catch {} },
+        remove: () => { try { window.localStorage.removeItem("canvas-device-token"); } catch {} }
+      };
       let jobId = "";
-      let deviceToken = localStorage.getItem("canvas-device-token") || "";
+      let deviceToken = storage.get();
       const show = (message, kind = "") => { status.textContent = message; status.className = `status show ${kind}`; };
       const claim = async (payload) => {
         button.disabled = true;
@@ -30,7 +35,7 @@
           if (!response.ok) throw new Error(data.error || "Код не найден");
           jobId = data.id;
           deviceToken = data.deviceToken;
-          localStorage.setItem("canvas-device-token", deviceToken);
+          storage.set(deviceToken);
           parent.postMessage({ pluginMessage: { type: "create-design", design: data.design } }, "*");
           show("Создаём редактируемые слои в Figma…");
         } catch (error) {
@@ -48,7 +53,7 @@
           const pairData = await pairResponse.json();
           if (!pairResponse.ok) throw new Error(pairData.error || "Код не найден");
           deviceToken = pairData.deviceToken;
-          localStorage.setItem("canvas-device-token", deviceToken);
+          storage.set(deviceToken);
           code.value = "";
           show("Figma подключена. Теперь пишите промты на сайте.", "success");
           button.textContent = "Сайт подключён";
