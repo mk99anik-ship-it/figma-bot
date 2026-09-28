@@ -10,7 +10,7 @@
     <p>Откройте Canvas AI в браузере, создайте дизайн и вставьте код сопряжения сюда.</p>
     <label class="label" for="code">КОД СОПРЯЖЕНИЯ</label>
     <input id="code" maxlength="6" placeholder="ABC123" autocomplete="off" />
-    <button class="button" id="button">Получить дизайн</button>
+    <button class="button" id="button">Подключить сайт</button>
     <div class="status" id="status"></div>
     <div class="hint">Код действует для одной генерации</div>
     <script>
@@ -40,27 +40,21 @@
       };
       button.onclick = async () => {
         const enteredCode = code.value.trim().toUpperCase();
-        if (!deviceToken && enteredCode.length !== 6) { show("Введите код для первого подключения", "error"); return; }
-        if (enteredCode.length === 6) {
-          deviceToken = "";
-          localStorage.removeItem("canvas-device-token");
-          button.disabled = true;
-          show("Подключаем Figma к сайту…");
-          try {
-            const pairResponse = await fetch(`${endpoint}/api/pair/claim`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pairingCode: enteredCode }) });
-            const pairData = await pairResponse.json();
-            if (pairResponse.ok) {
-              deviceToken = pairData.deviceToken;
-              localStorage.setItem("canvas-device-token", deviceToken);
-              code.value = "";
-              show("Figma подключена. Теперь можно писать промты на сайте.", "success");
-              button.textContent = "Подключено";
-              return;
-            }
-          } catch {}
-          claim({ pairingCode: enteredCode });
-        } else {
-          claim({ deviceToken });
+        if (enteredCode.length !== 6) { show("Введите код из сайта", "error"); return; }
+        button.disabled = true;
+        show("Подключаем Figma к сайту…");
+        try {
+          const pairResponse = await fetch(`${endpoint}/api/pair/claim`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pairingCode: enteredCode }) });
+          const pairData = await pairResponse.json();
+          if (!pairResponse.ok) throw new Error(pairData.error || "Код не найден");
+          deviceToken = pairData.deviceToken;
+          localStorage.setItem("canvas-device-token", deviceToken);
+          code.value = "";
+          show("Figma подключена. Теперь пишите промты на сайте.", "success");
+          button.textContent = "Сайт подключён";
+        } catch (error) {
+          button.disabled = false;
+          show(error.message, "error");
         }
       };
       const poll = async () => {
